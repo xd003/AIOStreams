@@ -6,6 +6,10 @@ export {
   type AdminUserDetail,
 } from './repositories/admin-users.js';
 export {
+  AuthUserRepository,
+  type AuthUserListItem,
+} from './repositories/auth-users.js';
+export {
   SettingsRepository,
   type SettingRow,
 } from './repositories/settings.js';

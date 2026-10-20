@@ -130,7 +130,7 @@ export const streamsSchema = {
     default: {} as Record<string, number>,
     label: 'Connection limits',
     description:
-      'How many streams may run at once, counted across the built-in proxy and the usenet engine together. Use `**` for one pool everyone shares, `*` for what each unlisted user gets individually, or a username for that user alone. `0` means unlimited.',
+      'How many streams may run at once, counted across the built-in proxy and the usenet engine together. Use `**` for one pool everyone shares, `*` for what each unlisted user gets individually, or a username for that user alone. `0` means unlimited. A user managed through the dashboard auth-users API can carry its own cap, which applies unless its username is listed here.',
     // Second name is the pre-rename variable, undocumented but still honoured.
     env: ['STREAMS_CONNECTION_LIMITS', 'AIOSTREAMS_AUTH_CONNECTIONS_LIMIT'],
     requiresRestart: false,

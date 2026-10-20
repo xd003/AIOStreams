@@ -64,8 +64,12 @@ These are validated at startup and cannot be set from the dashboard.
   Credentials can also be managed at runtime, without a restart, through the
   admin-only dashboard API: `GET /api/v1/dashboard/auth-users` lists them,
   `PUT /api/v1/dashboard/auth-users/:username` with
-  `{ "password", "permissions": [...], "note"? }` creates or replaces one, and
-  `DELETE` on the same path removes it and stops its live streams. Managed users
+  `{ "password", "permissions": [...], "note"?, "connectionLimit"? }` creates or
+  replaces one, and `DELETE` on the same path removes it and stops its live
+  streams. `connectionLimit` is the user's own concurrent-stream cap (`0` or
+  `-1` unlimited; omitted or `null` falls back to the `*` entry of
+  `STREAMS_CONNECTION_LIMITS`); a username entry in `STREAMS_CONNECTION_LIMITS`
+  still overrides it. Managed users
   carry their own permission list (empty means login-only) and never fall back
   to `admin`. A name in `AIOSTREAMS_AUTH` always wins and cannot be managed
   through the API. Passwords are stored encrypted with `SECRET_KEY`; other
@@ -1508,12 +1512,12 @@ neither the environment variable nor a stored value is present.
 
 ### Streams
 
-| Environment Variable             | UI Setting             | Type     | Default | Description                                                                                                                                                                                                                                                                               |
-| -------------------------------- | ---------------------- | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `STREAMS_HISTORY_RETENTION_DAYS` | History Retention Days | number   | `7`     | How long finished streams stay on the dashboard history list. Bandwidth totals are kept separately and are not affected by this.                                                                                                                                                          |
-| `STREAMS_CLIENT_IP_RECORDING`    | Client IP Recording    | enum     | `full`  | How much of a viewer's IP address is kept. `full` shows the whole address on the dashboard and in stream history, `prefix` keeps only the network part (`203.0.113.x`, `2001:db8:1::/48`), and `none` records nothing. Server logs always carry the full address whatever this is set to. |
-| `STREAMS_SESSION_IDLE_TIMEOUT`   | Session Idle Timeout   | duration | `90`    | How long a stream may go without serving bytes before it is treated as finished and moved to history. Seeking and buffering pauses are shorter than this, so they keep the same entry; resuming after it counts as a new watch. Bandwidth totals are unaffected either way.               |
-| `STREAMS_CONNECTION_LIMITS`      | Connection Limits      | map      | —       | How many streams may run at once, counted across the built-in proxy and the usenet engine together. Use `**` for one pool everyone shares, `*` for what each unlisted user gets individually, or a username for that user alone. `0` means unlimited.                                     |
+| Environment Variable             | UI Setting             | Type     | Default | Description                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------- | ---------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STREAMS_HISTORY_RETENTION_DAYS` | History Retention Days | number   | `7`     | How long finished streams stay on the dashboard history list. Bandwidth totals are kept separately and are not affected by this.                                                                                                                                                                                                                                                   |
+| `STREAMS_CLIENT_IP_RECORDING`    | Client IP Recording    | enum     | `full`  | How much of a viewer's IP address is kept. `full` shows the whole address on the dashboard and in stream history, `prefix` keeps only the network part (`203.0.113.x`, `2001:db8:1::/48`), and `none` records nothing. Server logs always carry the full address whatever this is set to.                                                                                          |
+| `STREAMS_SESSION_IDLE_TIMEOUT`   | Session Idle Timeout   | duration | `90`    | How long a stream may go without serving bytes before it is treated as finished and moved to history. Seeking and buffering pauses are shorter than this, so they keep the same entry; resuming after it counts as a new watch. Bandwidth totals are unaffected either way.                                                                                                        |
+| `STREAMS_CONNECTION_LIMITS`      | Connection Limits      | map      | —       | How many streams may run at once, counted across the built-in proxy and the usenet engine together. Use `**` for one pool everyone shares, `*` for what each unlisted user gets individually, or a username for that user alone. `0` means unlimited. A user managed through the dashboard auth-users API can carry its own cap, which applies unless its username is listed here. |
 
 #### Bandwidth
 

@@ -1,4 +1,4 @@
-import { appConfig } from '../utils/index.js';
+import { appConfig, getManagedConnectionLimit } from '../utils/index.js';
 import {
   GLOBAL_LIMIT_KEY,
   PER_USER_LIMIT_KEY,
@@ -33,10 +33,17 @@ export interface AdmissionInput {
 
 const OK: AdmissionVerdict = { ok: true };
 
-/** The cap for a user; 0 means unlimited. */
+/**
+ * The cap for a user; 0 means unlimited. A username entry in
+ * `streams.connectionLimits` wins, then the managed user's own cap, then `*`.
+ */
 export function connectionLimitFor(username: string): number {
   const limits = appConfig.streams.connectionLimits;
-  const limit = limits[username] ?? limits[PER_USER_LIMIT_KEY] ?? 0;
+  const limit =
+    limits[username] ??
+    getManagedConnectionLimit(username) ??
+    limits[PER_USER_LIMIT_KEY] ??
+    0;
   return limit > 0 ? limit : 0;
 }
 

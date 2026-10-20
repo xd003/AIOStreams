@@ -49,6 +49,7 @@ import { watchSessionTracks } from './0048_watch_session_tracks.js';
 import { jellyfinPlaylists } from './0049_jellyfin_playlists.js';
 import { watchSessionLive } from './0050_watch_session_live.js';
 import { authUsers } from './1050_auth_users.js';
+import { authUsersConnectionLimit } from './1051_auth_users_connection_limit.js';
 import type { Migration } from './types.js';
 
 export const MIGRATIONS: readonly Migration[] = [
@@ -103,6 +104,7 @@ export const MIGRATIONS: readonly Migration[] = [
   jellyfinPlaylists,
   watchSessionLive,
   authUsers,
+  authUsersConnectionLimit,
 ];
 
 export type { Migration } from './types.js';

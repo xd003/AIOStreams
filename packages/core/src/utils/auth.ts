@@ -73,6 +73,8 @@ export function parseCredential(
 export interface ManagedAuthUser {
   password: string;
   permissions: ReadonlySet<Permission>;
+  /** Own concurrent-stream cap; null defers to `streams.connectionLimits`. */
+  connectionLimit: number | null;
 }
 
 let managedUsers: ReadonlyMap<string, ManagedAuthUser> = new Map();
@@ -97,6 +99,17 @@ export function getAuthPassword(username: string): string | undefined {
     appConfig.bootstrap.auth?.get(username) ??
     managedUsers.get(username)?.password
   );
+}
+
+/**
+ * A managed user's own concurrent-stream cap, or undefined when it has none
+ * (or the name is an AIOSTREAMS_AUTH entry, which shadows the managed user).
+ */
+export function getManagedConnectionLimit(
+  username: string
+): number | undefined {
+  if (appConfig.bootstrap.auth?.has(username)) return undefined;
+  return managedUsers.get(username)?.connectionLimit ?? undefined;
 }
 
 /**

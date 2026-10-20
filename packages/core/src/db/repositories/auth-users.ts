@@ -17,6 +17,8 @@ export interface AuthUserListItem {
   username: string;
   permissions: Permission[];
   note: string | null;
+  /** Own concurrent-stream cap; null defers to `streams.connectionLimits`. */
+  connectionLimit: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -26,6 +28,7 @@ interface Row {
   encrypted_password: string;
   permissions: string;
   note: string | null;
+  connection_limit: number | string | null;
   created_at: number | string;
   updated_at: number | string;
   [k: string]: unknown;
@@ -34,13 +37,14 @@ interface Row {
 export const AuthUserRepository = {
   async list(): Promise<AuthUserListItem[]> {
     const rows = await getDb().query<Row>(
-      sql`SELECT username, permissions, note, created_at, updated_at
+      sql`SELECT username, permissions, note, connection_limit, created_at, updated_at
           FROM auth_users ORDER BY username`
     );
     return rows.map((r) => ({
       username: r.username,
       permissions: r.permissions.split('|').filter(isPermission),
       note: r.note,
+      connectionLimit: toLimit(r.connection_limit),
       createdAt: Number(r.created_at),
       updatedAt: Number(r.updated_at),
     }));
@@ -56,6 +60,7 @@ export const AuthUserRepository = {
     password: string;
     permissions: Permission[];
     note?: string | null;
+    connectionLimit?: number | null;
   }): Promise<{ created: boolean }> {
     const { success, data: encrypted, error } = encryptString(input.password);
     if (!success || !encrypted) {
@@ -68,13 +73,16 @@ export const AuthUserRepository = {
     );
     await db.exec(
       sql`INSERT INTO auth_users
-            (username, encrypted_password, permissions, note, created_at, updated_at)
+            (username, encrypted_password, permissions, note, connection_limit,
+             created_at, updated_at)
           VALUES (${input.username}, ${encrypted}, ${input.permissions.join('|')},
-                  ${input.note ?? null}, ${now}, ${now})
+                  ${input.note ?? null}, ${input.connectionLimit ?? null},
+                  ${now}, ${now})
           ON CONFLICT (username) DO UPDATE SET
             encrypted_password = EXCLUDED.encrypted_password,
             permissions = EXCLUDED.permissions,
             note = EXCLUDED.note,
+            connection_limit = EXCLUDED.connection_limit,
             updated_at = EXCLUDED.updated_at`
     );
     await AuthUserRepository.reload();
@@ -93,7 +101,8 @@ export const AuthUserRepository = {
   /** Mirror the table into the in-memory credential set. */
   async reload(): Promise<number> {
     const rows = await getDb().query<Row>(
-      sql`SELECT username, encrypted_password, permissions FROM auth_users`
+      sql`SELECT username, encrypted_password, permissions, connection_limit
+          FROM auth_users`
     );
     const users = new Map<string, ManagedAuthUser>();
     for (const r of rows) {
@@ -110,9 +119,15 @@ export const AuthUserRepository = {
       users.set(r.username, {
         password,
         permissions: new Set(r.permissions.split('|').filter(isPermission)),
+        connectionLimit: toLimit(r.connection_limit),
       });
     }
     setManagedAuthUsers(users);
     return users.size;
   },
 };
+
+/** Postgres may return integers as strings; NULL stays null. */
+function toLimit(value: number | string | null): number | null {
+  return value === null || value === undefined ? null : Number(value);
+}

@@ -8,6 +8,7 @@ import {
   buildOidcAuthorisationRequest,
   completeOidcLogin,
   getEffectivePermissions,
+  getAuthPassword,
   Permission,
   resolveOidcPermissions,
   sanitiseNextPath,
@@ -114,11 +115,11 @@ router.get('/oidc/callback', oidcRateLimiter, async (req, res) => {
 
   const { username, groups } = identity;
 
-  const isLocalUser = appConfig.bootstrap.auth?.has(username) ?? false;
+  const isLocalUser = getAuthPassword(username) !== undefined;
   if (isLocalUser && !appConfig.oidc.linkByUsername) {
     logger.error(
       { username },
-      'SSO login refused: the username collides with a local AIOSTREAMS_AUTH user. Enable linking by username, set an SSO username prefix, change the username claim, or rename the local user.'
+      'SSO login refused: the username collides with a local (AIOSTREAMS_AUTH or managed) user. Enable linking by username, set an SSO username prefix, change the username claim, or rename the local user.'
     );
     failToLogin(res, constants.ErrorCode.OIDC_USERNAME_CONFLICT);
     return;

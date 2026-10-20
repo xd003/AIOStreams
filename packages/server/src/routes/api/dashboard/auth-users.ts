@@ -25,6 +25,9 @@ const UpsertSchema = z.object({
     .array(z.enum(PERMISSION_NAMES as [Permission, ...Permission[]]))
     .max(PERMISSION_NAMES.length),
   note: z.string().max(200).nullish(),
+  // Own concurrent-stream cap: `0`/`-1` unlimited, absent/null defers to
+  // STREAMS_CONNECTION_LIMITS (its `*` entry).
+  connectionLimit: z.number().int().min(-1).nullish(),
 });
 
 function fail(res: Response, status: number, code: string, message: string) {
@@ -77,7 +80,12 @@ router.put('/:username', async (req, res, next) => {
       ...parsed.data,
     });
     logger.info(
-      { username, permissions: parsed.data.permissions, created },
+      {
+        username,
+        permissions: parsed.data.permissions,
+        connectionLimit: parsed.data.connectionLimit ?? null,
+        created,
+      },
       created ? 'managed auth user created' : 'managed auth user updated'
     );
     res

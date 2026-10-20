@@ -44,6 +44,7 @@ import {
   stopAnalytics,
   ConfigSessionRepository,
   AppReportRepository,
+  AuthUserRepository,
   TaskManager,
   instanceId,
   flushWatchState,
@@ -410,6 +411,25 @@ async function initialiseAuth() {
   await ensureConfigAccessKey();
   warnLegacyAuthVarsIfNeeded();
   warnMissingConfigPermission();
+  const managed = await AuthUserRepository.reload();
+  if (managed) logger.info(`Loaded ${managed} managed auth users`);
+  const intervalSeconds = appConfig.bootstrap.settingsRefreshInterval;
+  TaskManager.register({
+    id: 'auth-users-sync',
+    label: 'Sync managed auth users',
+    description:
+      'Reloads the credentials managed from the dashboard API, so a change made on another instance takes effect here.',
+    category: 'data-sync',
+    kind: 'scheduled',
+    intervalMs: intervalSeconds * 1000,
+    enabled: intervalSeconds > 0,
+    destructive: false,
+    multiReplica: 'all',
+    run: async () => {
+      const n = await AuthUserRepository.reload();
+      return { ok: true, message: `loaded ${n} managed auth users` };
+    },
+  });
   await initialiseOidc();
 }
 

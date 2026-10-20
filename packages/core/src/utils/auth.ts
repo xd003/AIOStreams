@@ -69,15 +69,46 @@ export function parseCredential(
   return { username, password };
 }
 
+/** A credential added at runtime (dashboard API) rather than in AIOSTREAMS_AUTH. */
+export interface ManagedAuthUser {
+  password: string;
+  permissions: ReadonlySet<Permission>;
+}
+
+let managedUsers: ReadonlyMap<string, ManagedAuthUser> = new Map();
+
+/**
+ * Replace the runtime-managed credential set. Owned by `AuthUserRepository`,
+ * which loads it from the DB at startup, after every write, and on a timer so
+ * other replicas pick up changes.
+ */
+export function setManagedAuthUsers(
+  users: ReadonlyMap<string, ManagedAuthUser>
+): void {
+  managedUsers = users;
+}
+
+/**
+ * The password for a username: AIOSTREAMS_AUTH first, then the managed set.
+ * An AIOSTREAMS_AUTH entry shadows a managed user of the same name entirely.
+ */
+export function getAuthPassword(username: string): string | undefined {
+  return (
+    appConfig.bootstrap.auth?.get(username) ??
+    managedUsers.get(username)?.password
+  );
+}
+
 /**
  * Validate a username/password pair against the AIOSTREAMS_AUTH credential
- * map. This is the same map used by the built-in proxy and NZB-grab proxying.
+ * map and the managed users. This is the same set used by the built-in proxy
+ * and NZB-grab proxying.
  */
 export function validateCredentials(
   username: string,
   password: string
 ): boolean {
-  const stored = appConfig.bootstrap.auth?.get(username);
+  const stored = getAuthPassword(username);
   if (stored === undefined) return false;
   return constantTimeEquals(stored, password);
 }
@@ -102,10 +133,10 @@ export function checkAuthToken(
       reason: 'credential is not a user:pass or base64(user:pass) pair',
     };
   }
-  if (!appConfig.bootstrap.auth?.has(creds.username)) {
+  if (getAuthPassword(creds.username) === undefined) {
     return {
       ok: false,
-      reason: `user "${creds.username}" not found in AIOSTREAMS_AUTH`,
+      reason: `user "${creds.username}" not found`,
     };
   }
   if (!validateCredentials(creds.username, creds.password)) {
@@ -123,6 +154,7 @@ export function checkAuthToken(
 /**
  * Resolve the effective permission set for a username.
  *
+ * - Managed users (not shadowed by AIOSTREAMS_AUTH) get their stored set.
  * - Users listed in AIOSTREAMS_AUTH_PERMISSIONS get exactly that set (with
  *   `admin` expanded to every permission).
  * - Users not listed fall back to the legacy AIOSTREAMS_AUTH_ADMINS /
@@ -134,7 +166,11 @@ export function checkAuthToken(
  * would take that fallback and receive every permission.
  */
 export function getEffectivePermissions(username: string): Set<Permission> {
-  const configured = appConfig.bootstrap.authPermissions?.get(username);
+  const managed = appConfig.bootstrap.auth?.has(username)
+    ? undefined
+    : managedUsers.get(username);
+  const configured =
+    managed?.permissions ?? appConfig.bootstrap.authPermissions?.get(username);
   if (configured) {
     if (configured.has(Permission.Admin)) {
       return new Set(ALL_PERMISSIONS);
@@ -327,6 +363,10 @@ export function verifySession(token: string | undefined): SessionUser | null {
     };
   }
 
+  // A password session whose user has since been removed (from the managed
+  // set, or from AIOSTREAMS_AUTH across a restart) is dead: the fallback
+  // below would otherwise grant an unknown username every permission.
+  if (getAuthPassword(payload.u) === undefined) return null;
   const permissions = [...getEffectivePermissions(payload.u)];
   return {
     username: payload.u,

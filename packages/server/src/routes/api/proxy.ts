@@ -16,6 +16,7 @@ import {
   MAX_REDIRECTS,
   REQUEST_BODY_HEADERS,
   validateCredentials,
+  getAuthPassword,
   hasPermission,
   Permission,
   downloadManager,
@@ -267,8 +268,8 @@ async function serveNzbFromGrabCache(
 router.use(corsMiddleware);
 
 // POST /generate — produce a proxified URL. Admin-only (dashboard session).
-// Credentials are injected server-side from AIOSTREAMS_AUTH for the session
-// user — the proxy password never reaches the browser.
+// Credentials are injected server-side for the session user — the proxy
+// password never reaches the browser.
 const GenerateSchema = ProxyDataSchema.extend({
   encrypt: z.boolean().optional().default(true),
 });
@@ -280,14 +281,12 @@ router.post(
     try {
       const body = GenerateSchema.parse(req.body ?? {});
       const username = (req as { user?: { username?: string } }).user?.username;
-      const password = username
-        ? appConfig.bootstrap.auth?.get(username)
-        : undefined;
+      const password = username ? getAuthPassword(username) : undefined;
       if (!username || !password) {
         throw new APIError(
           constants.ErrorCode.UNAUTHORIZED,
           undefined,
-          'No AIOSTREAMS_AUTH credentials for the current session user'
+          'No credentials for the current session user'
         );
       }
       const proxy = new BuiltinProxy({

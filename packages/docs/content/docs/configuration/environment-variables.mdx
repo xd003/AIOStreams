@@ -60,6 +60,18 @@ These are validated at startup and cannot be set from the dashboard.
 | `AIOSTREAMS_AUTH`             | —       | Comma-separated `username:password` pairs defining all valid credentials. e.g. `user1:pass1,user2:pass2`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `AIOSTREAMS_AUTH_PERMISSIONS` | —       | Per-user permissions as comma-separated `username=perm1\|perm2` entries. Valid permissions: `admin` (dashboard + everything), `createConfig` (creating new configurations), `proxy` (built-in proxy), `service` (built-in usenet engine), `sabnzbd` (SABnzbd-compatible API), `webdav` (the WebDAV share), or `none` for login-only. Users not listed default to `admin`. An entry written before `createConfig` existed no longer allows creating configurations; add it explicitly. e.g. `alice=admin,bob=proxy\|service\|createConfig`. |
 
+<Callout type="info">
+  Credentials can also be managed at runtime, without a restart, through the
+  admin-only dashboard API: `GET /api/v1/dashboard/auth-users` lists them,
+  `PUT /api/v1/dashboard/auth-users/:username` with
+  `{ "password", "permissions": [...], "note"? }` creates or replaces one, and
+  `DELETE` on the same path removes it and stops its live streams. Managed users
+  carry their own permission list (empty means login-only) and never fall back
+  to `admin`. A name in `AIOSTREAMS_AUTH` always wins and cannot be managed
+  through the API. Passwords are stored encrypted with `SECRET_KEY`; other
+  instances pick up changes every `SETTINGS_REFRESH_INTERVAL`.
+</Callout>
+
 ### Logging
 
 These configure the logger.

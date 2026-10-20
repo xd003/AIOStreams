@@ -34,6 +34,7 @@ import communityDashboard from './community.js';
 import sharesDashboard from './shares.js';
 import mediaInfoDashboard from './media-info.js';
 import reportsDashboard from './reports.js';
+import authUsersDashboard from './auth-users.js';
 
 const router: Router = Router();
 const logger = createLogger('dashboard');
@@ -64,6 +65,9 @@ router.use('/media-info', mediaInfoDashboard);
 
 // Reports the apps sent.
 router.use('/reports', reportsDashboard);
+
+// Credentials managed at runtime, alongside AIOSTREAMS_AUTH.
+router.use('/auth-users', authUsersDashboard);
 
 function csv(v: unknown): string[] | undefined {
   if (typeof v !== 'string' || !v.trim()) return undefined;

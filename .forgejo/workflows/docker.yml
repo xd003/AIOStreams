@@ -19,6 +19,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # arm64 is built on this amd64 runner under QEMU emulation.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -41,15 +47,15 @@ jobs:
             echo "tag=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
           fi
 
-      # amd64 only: arm64 under QEMU would compile ffprobe and the native
-      # modules emulated, many times slower. The registry cache keeps the
-      # ffprobe and dependency layers between runs; a cache failure never
-      # fails the build.
+      # One multi-arch manifest (amd64 + arm64) per tag. arm64 runs emulated,
+      # so its first build (ffprobe, native modules, the frontend) is slow; the
+      # registry cache keeps every platform's ffprobe and dependency layers
+      # between runs, and a cache failure never fails the build.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ steps.vars.outputs.image }}:${{ steps.vars.outputs.tag }}
